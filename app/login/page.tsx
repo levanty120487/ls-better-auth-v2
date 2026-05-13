@@ -34,9 +34,7 @@ export default function LoginPage() {
       );
       await authClient.signIn.oauth2({
         providerId: "wso2",
-        callbackURL:
-          process.env.NEXT_PUBLIC_BETTER_AUTH_URL +
-          "/api/auth/oauth2/callback/wso2",
+        callbackURL: from || "/dashboard",
         errorCallbackURL: "/login?error=sso_failed",
       });
     } catch (err) {

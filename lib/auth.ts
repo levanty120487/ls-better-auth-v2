@@ -1,6 +1,6 @@
 import { betterAuth, string } from "better-auth";
 import { genericOAuth } from "better-auth/plugins";
-import { MssqlDialect } from "kysely";
+import { MssqlDialect, Kysely } from "kysely";
 import * as Tedious from "tedious";
 import * as Tarn from "tarn";
 
@@ -52,6 +52,14 @@ const dialect = new MssqlDialect({
     ...Tedious.TYPES,
     DateTime: Tedious.TYPES.DateTime2,
   },
+});
+
+/**
+ * Shared Kysely instance để truy vấn database thủ công
+ * (Dùng cho token-manager hoặc các logic custom khác)
+ */
+export const db = new Kysely<any>({
+  dialect,
 });
 
 // ─── Better Auth Configuration ───────────────────────────────────────────────

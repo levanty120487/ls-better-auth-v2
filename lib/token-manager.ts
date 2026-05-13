@@ -10,7 +10,7 @@
  *   - accessTokenExpiresAt
  */
 
-import { auth } from "@/lib/auth";
+import { auth, db } from "@/lib/auth";
 import { headers } from "next/headers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -76,12 +76,8 @@ export async function getValidAccessToken(): Promise<string | null> {
  */
 async function getWso2Account(userId: string): Promise<AccountRecord | null> {
   try {
-    // Dùng Kysely dialect của Better Auth để query thẳng vào DB
-    // Better Auth expose internal db qua auth.options.database
-    const db = (auth as unknown as { options: { database: { kysely: import("kysely").Kysely<Record<string, Record<string, unknown>>> } } }).options.database?.kysely;
-
     if (!db) {
-      console.error("[TokenManager] Không tìm thấy Kysely DB instance.");
+      console.error("[TokenManager] Kysely DB instance is not available.");
       return null;
     }
 
