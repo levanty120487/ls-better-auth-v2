@@ -17,6 +17,7 @@ import { headers } from "next/headers";
 
 interface AccountRecord {
   accessToken: string | null;
+  idToken: string | null;
   refreshToken: string | null;
   accessTokenExpiresAt: Date | null;
   providerId: string;
@@ -38,32 +39,52 @@ export async function getValidAccessToken(): Promise<string | null> {
   });
 
   if (!session?.user?.id) {
+    console.warn("[TokenManager] Không tìm thấy session người dùng.");
     return null;
   }
+
+  console.log("session", session);
 
   // 2. Truy vấn account record của WSO2 provider từ DB
   const account = await getWso2Account(session.user.id);
 
   if (!account || !account.accessToken) {
+    console.error(
+      "[TokenManager] Không tìm thấy accessToken trong DB cho user:",
+      session.user.id,
+    );
     return null;
   }
+
+  console.log(`[TokenManager] Token info:
+    - AccessToken (Preview): ${account.accessToken}
+    - IdToken (Preview): ${account.idToken ? account.idToken.substring(0, 10) + "..." : "N/A"}
+    - Using: ${account.idToken ? "IdToken" : "AccessToken"}
+  `);
+
+  // Trả về token (Ưu tiên IdToken nếu bạn muốn test JWT, hoặc giữ AccessToken nếu đã chỉnh WSO2)
+  // Tạm thời tôi sẽ thử trả về idToken nếu có để xem API .NET có nhận không
+  const finalToken = account.idToken || account.accessToken;
 
   // 3. Kiểm tra token có hết hạn chưa (thêm 30s buffer)
   const isExpired = isTokenExpired(account.accessTokenExpiresAt);
 
   if (!isExpired) {
-    return account.accessToken;
+    return finalToken;
   }
 
   // 4. Token hết hạn → thử refresh
+  console.log("[TokenManager] Token hết hạn, đang tiến hành refresh...");
   if (!account.refreshToken) {
-    console.warn("[TokenManager] Access token hết hạn, không có refresh token.");
+    console.warn(
+      "[TokenManager] Access token hết hạn, không có refresh token.",
+    );
     return null;
   }
 
   const newToken = await refreshAccessToken(
     account.refreshToken,
-    session.user.id
+    session.user.id,
   );
 
   return newToken;
@@ -85,6 +106,7 @@ async function getWso2Account(userId: string): Promise<AccountRecord | null> {
       .selectFrom("account")
       .select([
         "accessToken",
+        "idToken",
         "refreshToken",
         "accessTokenExpiresAt",
         "providerId",
@@ -98,10 +120,9 @@ async function getWso2Account(userId: string): Promise<AccountRecord | null> {
     return {
       accessToken: result.accessToken as string | null,
       refreshToken: result.refreshToken as string | null,
-      accessTokenExpiresAt: result.accessTokenExpiresAt
-        ? new Date(result.accessTokenExpiresAt as string)
-        : null,
+      accessTokenExpiresAt: result.accessTokenExpiresAt as Date | null,
       providerId: result.providerId as string,
+      idToken: result.idToken as string | null,
     };
   } catch (error) {
     console.error("[TokenManager] Lỗi khi lấy account:", error);
@@ -124,7 +145,7 @@ function isTokenExpired(expiresAt: Date | null): boolean {
  */
 async function refreshAccessToken(
   refreshToken: string,
-  userId: string
+  userId: string,
 ): Promise<string | null> {
   try {
     const params = new URLSearchParams({
@@ -158,7 +179,12 @@ async function refreshAccessToken(
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
     // Cập nhật token mới vào DB
-    await updateAccountTokens(userId, newAccessToken, newRefreshToken, expiresAt);
+    await updateAccountTokens(
+      userId,
+      newAccessToken,
+      newRefreshToken,
+      expiresAt,
+    );
 
     console.log("[TokenManager] Đã refresh access token thành công.");
     return newAccessToken;
@@ -192,10 +218,20 @@ async function updateAccountTokens(
   userId: string,
   accessToken: string,
   refreshToken: string,
-  expiresAt: Date
+  expiresAt: Date,
 ): Promise<void> {
   try {
-    const db = (auth as unknown as { options: { database: { kysely: import("kysely").Kysely<Record<string, Record<string, unknown>>> } } }).options.database?.kysely;
+    const db = (
+      auth as unknown as {
+        options: {
+          database: {
+            kysely: import("kysely").Kysely<
+              Record<string, Record<string, unknown>>
+            >;
+          };
+        };
+      }
+    ).options.database?.kysely;
 
     if (!db) return;
 

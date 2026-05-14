@@ -17,17 +17,24 @@ interface ApiHealthResponse {
   version?: string;
 }
 
+interface Category {
+  key: string;
+  title: string;
+}
+
 interface Props {
   user: User;
   tokenPreview: string | null;
-  apiStatus: ApiHealthResponse | null;
+  // apiStatus: ApiHealthResponse | null;
+  categories: Category[];
   apiError: string | null;
 }
 
 export default function DashboardClient({
   user,
   tokenPreview,
-  apiStatus,
+  // apiStatus,
+  categories,
   apiError,
 }: Props) {
   const router = useRouter();
@@ -229,6 +236,47 @@ export default function DashboardClient({
           </div>
         </header>
 
+        {/* Categories Section */}
+        <section className="section-card" aria-labelledby="categories-title">
+          <div className="section-header">
+            <h2 id="categories-title" className="section-title">
+              Danh mục tin tức
+            </h2>
+            <span className="badge badge-blue">
+              {categories.length} Danh mục
+            </span>
+          </div>
+
+          {categories.length > 0 ? (
+            <div className="categories-grid">
+              {categories.map((cat) => (
+                <div key={cat.key} className="category-item">
+                  <div className="cat-icon">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                  </div>
+                  <div className="cat-info">
+                    <p className="cat-name">{cat.title}</p>
+                    <p className="cat-slug">/{cat.title || "no-slug"}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>Chưa có danh mục nào được tải hoặc lỗi API.</p>
+            </div>
+          )}
+        </section>
+
         {/* Stats Grid */}
         <div className="stats-grid">
           {/* User Info Card */}
@@ -297,10 +345,7 @@ export default function DashboardClient({
 
           {/* API Status Card */}
           <div className="stat-card">
-            <div
-              className={`stat-icon ${apiStatus ? "stat-icon-blue" : "stat-icon-red"}`}
-              aria-hidden="true"
-            >
+            <div className={`stat-icon stat-icon-blue`} aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path
                   d="M3 10h14M3 6h14M3 14h7"
@@ -313,16 +358,16 @@ export default function DashboardClient({
             <div className="stat-content">
               <p className="stat-label">.NET Core API</p>
               <p className="stat-value">
-                {apiStatus ? (
+                {/* {apiStatus ? (
                   <span className="status-ok">✓ {apiStatus.status}</span>
                 ) : (
                   <span className="status-err">✗ Không kết nối được</span>
-                )}
+                )} */}
               </p>
-              {apiStatus?.version && (
+              {/* {apiStatus?.version && (
                 <p className="stat-detail">v{apiStatus.version}</p>
               )}
-              {apiError && <p className="stat-detail stat-error">{apiError}</p>}
+              {apiError && <p className="stat-detail stat-error">{apiError}</p>} */}
             </div>
           </div>
         </div>
@@ -740,6 +785,60 @@ const result = await apiClient.post("/api/items", {
         .badge-purple { background: rgba(99,102,241,0.1); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.2); }
         .badge-blue   { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
         .badge-green  { background: rgba(34,197,94,0.1);  color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+
+        /* Categories */
+        .section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+        }
+
+        .categories-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 12px;
+        }
+
+        .category-item {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 12px;
+          padding: 12px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: all 0.2s ease;
+        }
+
+        .category-item:hover {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(99,102,241,0.3);
+          transform: translateY(-2px);
+        }
+
+        .cat-icon {
+          width: 32px; height: 32px;
+          background: rgba(99,102,241,0.1);
+          color: #818cf8;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .cat-info { min-width: 0; }
+        .cat-name { font-size: 0.85rem; font-weight: 600; color: #f1f5f9; margin-bottom: 2px; }
+        .cat-slug { font-size: 0.7rem; color: #64748b; font-family: monospace; }
+
+        .empty-state {
+          padding: 40px;
+          text-align: center;
+          color: #475569;
+          font-style: italic;
+          font-size: 0.9rem;
+        }
 
         /* Code block */
         .code-block {

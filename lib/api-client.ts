@@ -49,7 +49,7 @@ interface ApiError {
  */
 export async function apiFetch<T = unknown>(
   path: string,
-  options: ApiRequestOptions = {}
+  options: ApiRequestOptions = {},
 ): Promise<T> {
   const { skipAuth = false, headers = {}, ...restOptions } = options;
 
@@ -57,6 +57,7 @@ export async function apiFetch<T = unknown>(
   const authHeaders: Record<string, string> = {};
   if (!skipAuth) {
     const token = await getValidAccessToken();
+    console.log("Token2222:", token);
     if (token) {
       authHeaders["Authorization"] = `Bearer ${token}`;
     }
@@ -80,12 +81,14 @@ export async function apiFetch<T = unknown>(
   });
 
   // 5. Xử lý response
+  const bodyText = await response.text(); // Đọc 1 lần duy nhất
+
   if (!response.ok) {
     let errorDetail: unknown;
     try {
-      errorDetail = await response.json();
+      errorDetail = JSON.parse(bodyText);
     } catch {
-      errorDetail = await response.text();
+      errorDetail = bodyText;
     }
 
     const apiError: ApiError = {
@@ -98,13 +101,17 @@ export async function apiFetch<T = unknown>(
     throw apiError;
   }
 
-  // 6. Parse JSON response
+  // 6. Trả về kết quả
   const contentType = response.headers.get("content-type");
   if (contentType?.includes("application/json")) {
-    return response.json() as Promise<T>;
+    try {
+      return JSON.parse(bodyText) as T;
+    } catch {
+      return bodyText as unknown as T;
+    }
   }
 
-  return response.text() as unknown as T;
+  return bodyText as unknown as T;
 }
 
 // ─── Convenience Methods ──────────────────────────────────────────────────────
@@ -151,7 +158,7 @@ export const apiClient = {
  */
 async function fetchWithTls(
   url: string,
-  options: RequestInit
+  options: RequestInit,
 ): Promise<Response> {
   const isDev = process.env.NODE_ENV === "development";
   const isLocalhost = url.includes("localhost") || url.includes("127.0.0.1");
@@ -164,9 +171,8 @@ async function fetchWithTls(
     });
     return undiciFetch(url, {
       ...options,
-      // @ts-expect-error - undici dispatcher option
       dispatcher,
-    }) as unknown as Response;
+    } as Record<string, unknown>) as unknown as Response;
   }
 
   return fetch(url, options);

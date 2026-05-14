@@ -13,11 +13,15 @@ import { apiClient } from "@/lib/api-client";
 import { getValidAccessToken } from "@/lib/token-manager";
 import DashboardClient from "./dashboard-client";
 
-// Ví dụ type từ .NET API
 interface ApiHealthResponse {
   status: string;
   timestamp: string;
   version?: string;
+}
+
+interface Category {
+  key: string;
+  title: string;
 }
 
 export default async function DashboardPage() {
@@ -26,7 +30,7 @@ export default async function DashboardPage() {
     headers: await headers(),
   });
 
-  // 2. Chưa đăng nhập → redirect (middleware đã handle nhưng để an toàn)
+  // 2. Chưa đăng nhập → redirect
   if (!session?.user) {
     redirect("/login");
   }
@@ -34,17 +38,45 @@ export default async function DashboardPage() {
   // 3. Lấy access token hiện tại (có thể đã được refresh)
   const accessToken = await getValidAccessToken();
 
-  // 4. Demo: gọi .NET Core API (health check)
-  let apiStatus: ApiHealthResponse | null = null;
+  // 4. Gọi các API từ .NET Core
+  // let apiStatus: ApiHealthResponse | null = null;
+  let categories: Category[] = [];
   let apiError: string | null = null;
 
+  console.log("--- DEBUG: Bắt đầu gọi API .NET Core ---");
+  console.log("Path 1: /api/health");
+  console.log("Path 2: /api/new/category/get-all");
+
   try {
-    // Thay "/api/health" bằng endpoint thực tế của bạn
-    apiStatus = await apiClient.get<ApiHealthResponse>("/api/health");
+    const [categoriesRes] = await Promise.all([
+      // apiClient.get<ApiHealthResponse>("/api/health").catch((e) => {
+      //   console.error("Lỗi API Health:", e.message);
+      //   return null;
+      // }),
+      apiClient.get<Category[]>("/api/new/category/get-all").catch((e) => {
+        // console.error("Lỗi API Categories:", e.message);
+        return null;
+      }),
+    ]);
+
+    console.log(
+      "Kết quả API Categories:",
+      categoriesRes ? `Số lượng: ${categoriesRes.length}` : "FAILED (null)",
+    );
+    if (categoriesRes)
+      console.log(
+        "Data Categories (5 bản ghi đầu):",
+        JSON.stringify(categoriesRes.slice(0, 5), null, 2),
+      );
+
+    // apiStatus = statusRes;
+    categories = categoriesRes || [];
   } catch (err) {
     const error = err as { status?: number; message?: string };
+    console.error("Lỗi tổng hợp API:", error);
     apiError = error?.message ?? "Không thể kết nối API";
   }
+  console.log("--- DEBUG: Kết thúc gọi API ---");
 
   const user = session.user;
   const tokenPreview = accessToken
@@ -60,7 +92,8 @@ export default async function DashboardPage() {
         image: user.image ?? null,
       }}
       tokenPreview={tokenPreview}
-      apiStatus={apiStatus}
+      // apiStatus={apiStatus}
+      categories={categories}
       apiError={apiError}
     />
   );

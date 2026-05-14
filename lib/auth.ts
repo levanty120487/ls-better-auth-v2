@@ -1,4 +1,4 @@
-import { betterAuth, string } from "better-auth";
+import { betterAuth } from "better-auth";
 import { genericOAuth } from "better-auth/plugins";
 import { MssqlDialect, Kysely } from "kysely";
 import * as Tedious from "tedious";
@@ -48,17 +48,57 @@ const dialect = new MssqlDialect({
       });
     },
   },
-  TYPES: {
-    ...Tedious.TYPES,
-    DateTime: Tedious.TYPES.DateTime2,
-  },
 });
+
+interface Database {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    emailVerified: boolean;
+    image?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  session: {
+    id: string;
+    expiresAt: Date;
+    token: string;
+    createdAt: Date;
+    updatedAt: Date;
+    ipAddress?: string;
+    userAgent?: string;
+    userId: string;
+  };
+  account: {
+    id: string;
+    userId: string;
+    providerId: string;
+    accountId: string;
+    accessToken?: string;
+    refreshToken?: string;
+    idToken?: string;
+    accessTokenExpiresAt?: Date;
+    refreshTokenExpiresAt?: Date;
+    scope?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  verification: {
+    id: string;
+    identifier: string;
+    value: string;
+    expiresAt: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
+  };
+}
 
 /**
  * Shared Kysely instance để truy vấn database thủ công
  * (Dùng cho token-manager hoặc các logic custom khác)
  */
-export const db = new Kysely<any>({
+export const db = new Kysely<Database>({
   dialect,
 });
 
@@ -91,17 +131,22 @@ export const auth = betterAuth({
           clientSecret: process.env.WSO2_CLIENT_SECRET!,
           discoveryUrl: process.env.WSO2_DISCOVERY_URL!,
           issuer: process.env.WSO2_ISSUER,
-          scopes: ["openid", "email", "profile"],
+          scopes: (process.env.WSO2_SCOPES || "openid email profile").split(
+            " ",
+          ),
           // Explicitly set redirectURI to ensure it matches WSO2 configuration
           redirectURI:
             process.env.BETTER_AUTH_URL! + "/api/auth/oauth2/callback/wso2",
-          pkce: false,
+          pkce: true,
           mapProfileToUser: (profile) => {
-            console.log("profile: ", profile);
+            console.log("--- DEBUG WSO2 PROFILE ---");
+            console.log(JSON.stringify(profile, null, 2));
+            console.log("--------------------------");
             return {
               name:
                 (profile.username as string) ||
                 (profile.preferred_username as string) ||
+                (profile.name as string) ||
                 (profile.sub as string),
               email: (profile.email as string) ?? "",
               image: (profile.picture as string) ?? null,
